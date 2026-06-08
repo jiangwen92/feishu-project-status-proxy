@@ -1,5 +1,7 @@
 # Feishu Project Status Proxy
 
+For Codex handoff and takeover notes, see [CODEX_HANDOFF.md](./CODEX_HANDOFF.md).
+
 这套目录把原来“每台电脑都要拿 Feishu 插件密钥直连”的方式，升级成了：
 
 `公共 Feishu 插件 + 中间代理服务 + 轻客户端/agent 调用`
