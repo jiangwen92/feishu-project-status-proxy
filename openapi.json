@@ -1,0 +1,189 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Feishu Project Status Proxy",
+    "version": "2026-06-08.1",
+    "description": "Shared proxy for previewing and executing Feishu Project work item status transitions without distributing plugin secrets to every client."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8787"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "relayBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Set this to RELAY_SHARED_SECRET when the proxy is configured with a shared secret."
+      }
+    },
+    "schemas": {
+      "StatusBatchRequest": {
+        "type": "object",
+        "required": [
+          "target",
+          "queries"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "Target Feishu Project status label or state key."
+          },
+          "queries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Task titles, asset names, or work item ids."
+          },
+          "work_item_type": {
+            "type": "string"
+          },
+          "project_key": {
+            "type": "string"
+          },
+          "project_user_key": {
+            "type": "string",
+            "description": "Only used when the proxy enables caller user keys."
+          },
+          "page_size": {
+            "type": "integer",
+            "default": 100
+          },
+          "confirm_execute": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ParseViewLinkRequest": {
+        "type": "object",
+        "required": [
+          "view_link"
+        ],
+        "properties": {
+          "view_link": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Proxy health and public config",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/config": {
+      "get": {
+        "summary": "Public proxy config",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/parse-view-link": {
+      "post": {
+        "summary": "Parse a Feishu Project saved view link",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseViewLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Parsed metadata"
+          }
+        }
+      }
+    },
+    "/preview-status": {
+      "post": {
+        "summary": "Preview a batch status transition",
+        "security": [
+          {
+            "relayBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusBatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preview result"
+          }
+        }
+      }
+    },
+    "/execute-status": {
+      "post": {
+        "summary": "Execute a batch status transition",
+        "security": [
+          {
+            "relayBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusBatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Execution result"
+          }
+        }
+      }
+    },
+    "/resolve-view-items": {
+      "post": {
+        "summary": "Reserved endpoint for future saved-view item resolution",
+        "security": [
+          {
+            "relayBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseViewLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "501": {
+            "description": "Not implemented in the MVP"
+          }
+        }
+      }
+    }
+  }
+}
