@@ -23,7 +23,7 @@ from view_cache_resolver import ViewResolutionError, resolve_view_items
 from view_links import DEFAULT_ASSET_SUBTASK_TYPE, parse_link
 
 
-VERSION = "2026-06-08.2"
+VERSION = "2026-06-08.3"
 DEFAULT_PORT = 8787
 
 

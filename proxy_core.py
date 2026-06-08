@@ -40,7 +40,7 @@ WORK_ITEM_TYPE_STATUS_OVERRIDES = {
         "done": {"label": "已完成", "state_key": "0gmbrd0o7"},
     },
     ASSET_TASK_WORK_ITEM_TYPE: {
-        "修改中": {"label": "修改中", "state_key": "Finished"},
+        "修改中": {"label": "修改中", "state_key": "orrqrnyrz"},
         "验收中": {"label": "验收中", "state_key": "c8uwlm517"},
         "已完成": {"label": "已完成", "state_key": "lad5okb29"},
         "done": {"label": "已完成", "state_key": "lad5okb29"},

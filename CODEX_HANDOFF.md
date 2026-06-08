@@ -9,7 +9,7 @@
 3. 建议开启“调用方必须自己提供 `user key`”模式，并记录审计日志。
 4. 真正部署前先复制 `.env.example` 为 `.env.local`。
 5. 当前版本支持从代理宿主机本地 Chrome 缓存里解析 `saved view -> 行数据`。
-6. 当前版本支持直接传原始 workflow 状态名，例如 `Finished`。
+6. 当前版本支持直接传原始 workflow 状态 key，例如 `orrqrnyrz`。
 7. 状态中文别名不是全局固定值，部分工作项类型会走专用映射。
 8. 如果传的是中文状态，必须命中当前工作项类型的中文映射表；否则代理会直接报错。
 
@@ -171,11 +171,11 @@ python3 client.py preview --target 已完成 --view-link "<view-link>"
 
 - `待办` -> `Not started`
 - `进行中` -> `In Progress`
-- `修改中` -> `Finished`
+- `修改中` -> `orrqrnyrz`
 - `验收中` -> `c8uwlm517`
 - `已完成` -> `lad5okb29`
 
-如果调用方传的是 `Finished`、`lad5okb29` 这类原始 workflow 值，代理也会直接按原值处理。
+如果调用方传的是 `orrqrnyrz`、`lad5okb29` 这类原始 workflow 值，代理也会直接按原值处理。
 
 如果调用方传的是中文状态，例如 `已完成`、`修改中`，代理会严格按当前工作项类型的中文映射表解析；中文状态没命中时会直接报错，避免误落到错误的状态 ID。
 

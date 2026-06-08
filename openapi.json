@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Feishu Project Status Proxy",
-    "version": "2026-06-08.2",
+    "version": "2026-06-08.3",
     "description": "Shared proxy for previewing and executing Feishu Project work item status transitions without distributing plugin secrets to every client."
   },
   "servers": [

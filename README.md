@@ -42,7 +42,7 @@ flowchart LR
 - 统一托管 Feishu Project 插件凭据
 - 按任务标题、资产名、工作项 ID 批量预览状态变更
 - 批量执行状态变更
-- 除了预设状态别名外，也支持直接传原始 workflow 状态名，例如 `Finished`
+- 除了预设状态别名外，也支持直接传原始 workflow 状态 key，例如 `orrqrnyrz`
 - 状态别名会按 `work_item_type` 解析，避免不同工作项类型共用一套中文映射
 - 如果传的是中文目标状态，必须精确命中该 `work_item_type` 的中文映射表；未命中会直接报错
 - 支持从本机 Chrome 的 Service Worker 缓存里解析 `saved view -> 行数据`
@@ -70,7 +70,7 @@ flowchart LR
 
 - `待办` -> `Not started`
 - `进行中` -> `In Progress`
-- `修改中` -> `Finished`
+- `修改中` -> `orrqrnyrz`
 - `验收中` -> `c8uwlm517`
 - `已完成` -> `lad5okb29`
 
