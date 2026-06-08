@@ -10,6 +10,7 @@
 4. 真正部署前先复制 `.env.example` 为 `.env.local`。
 5. 当前版本还不支持 `saved view link -> 自动拉取视图里的工作项列表`，只支持解析 view link 元信息。
 6. 当前版本支持直接传原始 workflow 状态名，例如 `Finished`。
+7. 状态中文别名不是全局固定值，部分工作项类型会走专用映射。
 
 ## 仓库目的
 
@@ -144,6 +145,18 @@ python3 client.py execute --target 修改中 --names-file /tmp/tasks.txt
 1. 只支持 `saved view link` 的解析，不支持直接把视图里的工作项列表拉出来
 2. 如果要从 saved view 批量操作，仍需要外部先把任务名单整理出来
 3. 审计日志目前是本地 JSONL 文件，不是数据库或可视化后台
+
+### 资产任务类型专用映射
+
+资产任务类型 `69ca09000d0f302f2617f6fc` 当前使用下面这套中文目标状态映射：
+
+- `待办` -> `Not started`
+- `进行中` -> `In Progress`
+- `修改中` -> `Finished`
+- `验收中` -> `c8uwlm517`
+- `已完成` -> `lad5okb29`
+
+如果调用方传的是 `Finished`、`lad5okb29` 这类原始 workflow 值，代理也会直接按原值处理。
 
 ## 对接别的 Codex 时怎么交接
 

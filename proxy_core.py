@@ -12,7 +12,7 @@ import urllib.request
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
-STATUS_MAP = {
+DEFAULT_STATUS_MAP = {
     "待办": {"label": "待办", "state_key": "Not started"},
     "not started": {"label": "待办", "state_key": "Not started"},
     "进行中": {"label": "进行中", "state_key": "In Progress"},
@@ -22,6 +22,17 @@ STATUS_MAP = {
     "资产验收通过": {"label": "资产验收通过", "state_key": "itl0cpgq4"},
     "已完成": {"label": "已完成", "state_key": "0gmbrd0o7"},
     "done": {"label": "已完成", "state_key": "0gmbrd0o7"},
+}
+
+ASSET_TASK_WORK_ITEM_TYPE = "69ca09000d0f302f2617f6fc"
+
+WORK_ITEM_TYPE_STATUS_OVERRIDES = {
+    ASSET_TASK_WORK_ITEM_TYPE: {
+        "修改中": {"label": "修改中", "state_key": "Finished"},
+        "验收中": {"label": "验收中", "state_key": "c8uwlm517"},
+        "已完成": {"label": "已完成", "state_key": "lad5okb29"},
+        "done": {"label": "已完成", "state_key": "lad5okb29"},
+    }
 }
 
 DEFAULT_BASE_URL = "https://project.feishu.cn/open_api"
@@ -54,6 +65,12 @@ def clean_query_line(line: str) -> str:
         return text
     text = re.sub(r"^\s*(?:[-*]\s*|\d+[.)、]\s*)", "", text)
     return text.strip()
+
+
+def status_map_for_work_item_type(work_item_type: str) -> Dict[str, Dict[str, str]]:
+    status_map = dict(DEFAULT_STATUS_MAP)
+    status_map.update(WORK_ITEM_TYPE_STATUS_OVERRIDES.get(str(work_item_type or "").strip(), {}))
+    return status_map
 
 
 def iter_strings(value: Any) -> Iterable[str]:
@@ -369,26 +386,31 @@ def load_queries(names: Sequence[str]) -> List[str]:
     return deduped
 
 
-def resolve_target(target: str) -> Dict[str, str]:
+def resolve_target(target: str, work_item_type: str = DEFAULT_WORK_ITEM_TYPE) -> Dict[str, str]:
+    status_map = status_map_for_work_item_type(work_item_type)
     key = normalize(target)
-    if key in STATUS_MAP:
-        return STATUS_MAP[key]
-    for info in STATUS_MAP.values():
-        if normalize(info["state_key"]) == key or normalize(info["label"]) == key:
-            return info
     raw = str(target or "").strip()
+    if key in status_map:
+        return status_map[key]
+    for info in status_map.values():
+        if normalize(info["state_key"]) == key:
+            return {"label": raw or info["label"], "state_key": info["state_key"]}
+    for info in status_map.values():
+        if normalize(info["label"]) == key:
+            return {"label": info["label"], "state_key": info["state_key"]}
     if raw:
         return {"label": raw, "state_key": raw}
     raise FeishuError(f"unsupported target status: {target}")
 
 
-def canonical_state_key(value: str) -> str:
+def canonical_state_key(value: str, work_item_type: str = DEFAULT_WORK_ITEM_TYPE) -> str:
+    status_map = status_map_for_work_item_type(work_item_type)
     key = normalize(value)
     if not key:
         return ""
-    if key in STATUS_MAP:
-        return STATUS_MAP[key]["state_key"]
-    for info in STATUS_MAP.values():
+    if key in status_map:
+        return status_map[key]["state_key"]
+    for info in status_map.values():
         if normalize(info["state_key"]) == key or normalize(info["label"]) == key:
             return info["state_key"]
     return str(value or "")
@@ -433,7 +455,7 @@ def build_actions(
         if not item:
             continue
         current_state_raw = item_status_value(item)
-        current_state = canonical_state_key(current_state_raw)
+        current_state = canonical_state_key(current_state_raw, work_item_type)
         action = {
             "id": item_id,
             "name": item_title(item),
@@ -493,7 +515,7 @@ def preview_or_execute(
     if not deduped_queries:
         raise FeishuError("provide at least one query, title, asset name, or work item id")
 
-    target = resolve_target(target_name)
+    target = resolve_target(target_name, work_item_type)
     items = client.list_work_items(work_item_type, page_size)
     item_by_id = {str(item.get("id") or ""): item for item in items if item.get("id")}
     matches = match_queries(deduped_queries, items)

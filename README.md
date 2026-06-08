@@ -43,12 +43,25 @@ flowchart LR
 - 按任务标题、资产名、工作项 ID 批量预览状态变更
 - 批量执行状态变更
 - 除了预设状态别名外，也支持直接传原始 workflow 状态名，例如 `Finished`
+- 状态别名会按 `work_item_type` 解析，避免不同工作项类型共用一套中文映射
 - 统一控制是否允许真实执行
 - 可选允许调用方传 `project_user_key`，用于按人审计
 - 解析 Feishu Project saved view link，识别：
   - `issueView/<view_id>`
   - `storyView/<view_id>`
   - `workObjectView/<type>/<view_id>`
+
+### 资产任务类型状态映射
+
+对资产任务类型 `69ca09000d0f302f2617f6fc`，当前内置中文别名映射是：
+
+- `待办` -> `Not started`
+- `进行中` -> `In Progress`
+- `修改中` -> `Finished`
+- `验收中` -> `c8uwlm517`
+- `已完成` -> `lad5okb29`
+
+如果后端 workflow 再次变更，最稳的兜底方式仍然是直接传原始 workflow 状态名或状态 key。
 
 ## 这版暂时还没接上的能力
 
