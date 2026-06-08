@@ -71,6 +71,11 @@ def normalize(value: Any) -> str:
     return text
 
 
+def contains_cjk(value: Any) -> bool:
+    text = str(value or "")
+    return any("\u4e00" <= char <= "\u9fff" for char in text)
+
+
 def clean_query_line(line: str) -> str:
     text = str(line or "").strip()
     if re.fullmatch(r"\d+", text):
@@ -83,6 +88,15 @@ def status_map_for_work_item_type(work_item_type: str) -> Dict[str, Dict[str, st
     status_map = dict(DEFAULT_STATUS_MAP)
     status_map.update(WORK_ITEM_TYPE_STATUS_OVERRIDES.get(str(work_item_type or "").strip(), {}))
     return status_map
+
+
+def supported_chinese_status_labels(work_item_type: str) -> List[str]:
+    labels: List[str] = []
+    for info in status_map_for_work_item_type(work_item_type).values():
+        label = str(info.get("label") or "").strip()
+        if label and contains_cjk(label) and label not in labels:
+            labels.append(label)
+    return labels
 
 
 def iter_strings(value: Any) -> Iterable[str]:
@@ -404,6 +418,12 @@ def resolve_target(target: str, work_item_type: str = DEFAULT_WORK_ITEM_TYPE) ->
     raw = str(target or "").strip()
     if key in status_map:
         return status_map[key]
+    if contains_cjk(raw):
+        supported = " / ".join(supported_chinese_status_labels(work_item_type))
+        raise FeishuError(
+            f"unsupported Chinese target status for work_item_type {work_item_type}: {raw}. "
+            f"supported Chinese statuses: {supported}"
+        )
     for info in status_map.values():
         if normalize(info["state_key"]) == key:
             return {"label": raw or info["label"], "state_key": info["state_key"]}
