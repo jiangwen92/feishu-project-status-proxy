@@ -42,6 +42,7 @@ flowchart LR
 - 统一托管 Feishu Project 插件凭据
 - 按任务标题、资产名、工作项 ID 批量预览状态变更
 - 批量执行状态变更
+- 除了预设状态别名外，也支持直接传原始 workflow 状态名，例如 `Finished`
 - 统一控制是否允许真实执行
 - 可选允许调用方传 `project_user_key`，用于按人审计
 - 解析 Feishu Project saved view link，识别：

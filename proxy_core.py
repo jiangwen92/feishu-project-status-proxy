@@ -376,6 +376,9 @@ def resolve_target(target: str) -> Dict[str, str]:
     for info in STATUS_MAP.values():
         if normalize(info["state_key"]) == key or normalize(info["label"]) == key:
             return info
+    raw = str(target or "").strip()
+    if raw:
+        return {"label": raw, "state_key": raw}
     raise FeishuError(f"unsupported target status: {target}")
 
 

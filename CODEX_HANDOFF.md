@@ -9,6 +9,7 @@
 3. 建议开启“调用方必须自己提供 `user key`”模式，并记录审计日志。
 4. 真正部署前先复制 `.env.example` 为 `.env.local`。
 5. 当前版本还不支持 `saved view link -> 自动拉取视图里的工作项列表`，只支持解析 view link 元信息。
+6. 当前版本支持直接传原始 workflow 状态名，例如 `Finished`。
 
 ## 仓库目的
 
