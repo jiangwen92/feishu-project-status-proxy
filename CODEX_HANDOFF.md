@@ -8,7 +8,7 @@
 2. 服务端保存 Feishu secret，调用方只拿代理地址和共享密钥。
 3. 建议开启“调用方必须自己提供 `user key`”模式，并记录审计日志。
 4. 真正部署前先复制 `.env.example` 为 `.env.local`。
-5. 当前版本还不支持 `saved view link -> 自动拉取视图里的工作项列表`，只支持解析 view link 元信息。
+5. 当前版本支持从代理宿主机本地 Chrome 缓存里解析 `saved view -> 行数据`。
 6. 当前版本支持直接传原始 workflow 状态名，例如 `Finished`。
 7. 状态中文别名不是全局固定值，部分工作项类型会走专用映射。
 8. 如果传的是中文状态，必须命中当前工作项类型的中文映射表；否则代理会直接报错。
@@ -129,6 +129,13 @@ python3 client.py preview --target 修改中 --names-file /tmp/tasks.txt
 python3 client.py execute --target 修改中 --names-file /tmp/tasks.txt
 ```
 
+如果宿主机 Chrome 最近打开过对应视图，也可以直接：
+
+```bash
+python3 client.py resolve-view-items "<view-link>"
+python3 client.py preview --target 已完成 --view-link "<view-link>"
+```
+
 ## 建议工作流
 
 无论人还是 Codex，建议都按这个顺序操作：
@@ -143,8 +150,8 @@ python3 client.py execute --target 修改中 --names-file /tmp/tasks.txt
 
 当前版本明确存在这些限制：
 
-1. 只支持 `saved view link` 的解析，不支持直接把视图里的工作项列表拉出来
-2. 如果要从 saved view 批量操作，仍需要外部先把任务名单整理出来
+1. `saved view -> 行数据` 当前依赖代理宿主机本地 Chrome 缓存，不是纯服务端无状态拉取
+2. 如果视图没在宿主机 Chrome 打开过，解析会失败并提示先打开一次
 3. 审计日志目前是本地 JSONL 文件，不是数据库或可视化后台
 
 ### 资产子任务类型专用映射
@@ -196,11 +203,11 @@ If you are only calling the proxy, use FEISHU_STATUS_PROXY_BASE_URL and FEISHU_S
 - 不要把 `.env.local` 提交到 Git
 - 不要把 `PROJECT_PLUGIN_SECRET` 发给普通调用方
 - 不要跳过 `preview` 直接 `execute`
-- 不要假设当前版本已经支持 `saved view -> 自动拉任务列表`
+- 不要把“Chrome 缓存解析”误当成“服务端实时拉取 saved view”
 
 ## 后续最值得继续做的事
 
-1. 补上 `saved view -> items` 解析器
-2. 增加操作者 allowlist
-3. 增加调用日志和审计日志
+1. 增加操作者 allowlist
+2. 把审计日志升级成更好查的持久化存储
+3. 继续补“非缓存态”的 saved view 实时拉取
 4. 视情况再包成单独插件或云函数部署模板

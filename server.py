@@ -19,10 +19,11 @@ from proxy_core import (
     clean_query_line,
     preview_or_execute,
 )
+from view_cache_resolver import ViewResolutionError, resolve_view_items
 from view_links import DEFAULT_ASSET_SUBTASK_TYPE, parse_link
 
 
-VERSION = "2026-06-08.1"
+VERSION = "2026-06-08.2"
 DEFAULT_PORT = 8787
 
 
@@ -228,6 +229,11 @@ def append_audit_log(
             env_text("PROJECT_DEFAULT_WORK_ITEM_TYPE", DEFAULT_WORK_ITEM_TYPE),
         ),
         "target": target,
+        "view_link": first_text(
+            body.get("view_link"),
+            body.get("url"),
+            ((result or {}).get("resolved_view") or {}).get("view_link"),
+        ),
         "query_count": len(queries),
         "queries_preview": queries[:20],
         "summary": (result or {}).get("summary"),
@@ -310,12 +316,24 @@ def build_client(body: Dict[str, Any], headers: Dict[str, str]) -> Tuple[FeishuP
 
 
 def preview_or_execute_response(body: Dict[str, Any], headers: Dict[str, str], execute: bool) -> Dict[str, Any]:
+    resolved_view: Optional[Dict[str, Any]] = None
     queries = collect_queries(body)
     target = first_text(body.get("target"), body.get("target_status"))
     if not target:
         raise HttpError(400, "missing target or target_status")
     if not queries:
-        raise HttpError(400, "missing queries, names, ids, or names_text")
+        view_link = first_text(body.get("view_link"), body.get("url"))
+        if view_link:
+            resolved_view = resolve_view_items(
+                view_link,
+                asset_subtask_type=env_text("PROJECT_ASSET_SUBTASK_TYPE", DEFAULT_ASSET_SUBTASK_TYPE),
+            )
+            queries = list(resolved_view.get("queries") or [])
+            if queries and not first_text(body.get("work_item_type"), body.get("work_item_type_key")):
+                body = dict(body)
+                body["work_item_type"] = first_text(resolved_view.get("work_item_type_key"))
+    if not queries:
+        raise HttpError(400, "missing queries, names, ids, names_text, or view_link")
     if execute and not env_bool("ALLOW_EXECUTE", True):
         raise HttpError(403, "execute is disabled on this proxy")
     if execute and body.get("confirm_execute") is not True:
@@ -334,6 +352,15 @@ def preview_or_execute_response(body: Dict[str, Any], headers: Dict[str, str], e
     result["project_key"] = client.project_key
     result["work_item_type"] = work_item_type
     result["acting_user_key"] = client.user_key
+    if resolved_view:
+        result["resolved_view"] = {
+            "view_link": first_text(resolved_view.get("view_link")),
+            "source": first_text(resolved_view.get("source")),
+            "item_count": int(resolved_view.get("item_count") or 0),
+            "work_item_type_key": first_text(resolved_view.get("work_item_type_key")),
+            "cache_request_ts_ms": int(resolved_view.get("cache_request_ts_ms") or 0),
+            "candidate_count": int(resolved_view.get("candidate_count") or 0),
+        }
     return result
 
 
@@ -396,20 +423,19 @@ class Handler(BaseHTTPRequestHandler):
                 view_link = first_text(body.get("view_link"), body.get("url"))
                 if not view_link:
                     raise HttpError(400, "missing view_link or url")
-                asset_subtask_type = env_text("PROJECT_ASSET_SUBTASK_TYPE", DEFAULT_ASSET_SUBTASK_TYPE)
-                parsed = parse_link(view_link, asset_subtask_type=asset_subtask_type)
                 send_json(
                     self,
                     {
-                        "ok": False,
+                        "ok": True,
                         "version": VERSION,
-                        "error": "saved-view item resolution is not wired into the proxy yet",
-                        "data": {
-                            "parsed_view": parsed,
-                            "next_step": "pass ids/titles/assets to /preview-status or add a dedicated view resolver backend",
-                        },
+                        "data": resolve_view_items(
+                            view_link,
+                            asset_subtask_type=env_text(
+                                "PROJECT_ASSET_SUBTASK_TYPE",
+                                DEFAULT_ASSET_SUBTASK_TYPE,
+                            ),
+                        ),
                     },
-                    501,
                 )
                 return
 
@@ -464,6 +490,17 @@ class Handler(BaseHTTPRequestHandler):
                     error=str(exc),
                 )
             send_json(self, {"ok": False, "version": VERSION, "error": str(exc)}, 502)
+        except ViewResolutionError as exc:
+            if path in {"/preview-status", "/execute-status"}:
+                append_audit_log(
+                    event_type=f"{path.lstrip('/').replace('-', '_')}_error",
+                    handler=self,
+                    body=body,
+                    headers=merged_headers,
+                    status_code=400,
+                    error=str(exc),
+                )
+            send_json(self, {"ok": False, "version": VERSION, "error": str(exc)}, 400)
         except Exception as exc:  # pragma: no cover
             if path in {"/preview-status", "/execute-status"}:
                 append_audit_log(

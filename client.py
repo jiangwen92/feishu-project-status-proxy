@@ -94,6 +94,8 @@ def build_status_payload(args: argparse.Namespace, execute: bool) -> Dict[str, A
         payload["project_user_key"] = args.user_key or user_key
     if args.page_size:
         payload["page_size"] = args.page_size
+    if getattr(args, "view_link", ""):
+        payload["view_link"] = args.view_link
     if execute:
         payload["confirm_execute"] = True
     return payload
@@ -108,11 +110,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parse_view = subparsers.add_parser("parse-view-link", help="Parse a Feishu Project view link")
     parse_view.add_argument("view_link")
 
+    resolve_view = subparsers.add_parser(
+        "resolve-view-items",
+        help="Resolve saved-view rows from the proxy host's local browser cache",
+    )
+    resolve_view.add_argument("view_link")
+
     for name in ("preview", "execute"):
         sub = subparsers.add_parser(name, help=f"{name} a status transition batch")
         sub.add_argument("--target", required=True, help="目标状态，例如：修改中、验收中、进行中")
         sub.add_argument("--name", action="append", default=[], help="任务标题、资产名或工作项ID，可重复")
         sub.add_argument("--names-file", default="", help="一行一个任务标题、资产名或工作项ID")
+        sub.add_argument("--view-link", default="", help="saved view 链接；若提供且未传名字列表，代理会自动解析视图里的工作项ID")
         sub.add_argument("--work-item-type", default="", help="工作项类型，例如 issue、story 或资产子任务类型key")
         sub.add_argument("--project-key", default="", help="项目key，默认读代理服务配置")
         sub.add_argument("--user-key", default="", help="仅当代理允许 caller user key 时生效")
@@ -125,6 +134,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
     if args.command == "parse-view-link":
         print_json(request_json("POST", "/parse-view-link", {"view_link": args.view_link}))
+        return 0
+    if args.command == "resolve-view-items":
+        print_json(request_json("POST", "/resolve-view-items", {"view_link": args.view_link}))
         return 0
     if args.command == "preview":
         print_json(request_json("POST", "/preview-status", build_status_payload(args, execute=False)))

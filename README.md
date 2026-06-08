@@ -45,6 +45,7 @@ flowchart LR
 - 除了预设状态别名外，也支持直接传原始 workflow 状态名，例如 `Finished`
 - 状态别名会按 `work_item_type` 解析，避免不同工作项类型共用一套中文映射
 - 如果传的是中文目标状态，必须精确命中该 `work_item_type` 的中文映射表；未命中会直接报错
+- 支持从本机 Chrome 的 Service Worker 缓存里解析 `saved view -> 行数据`
 - 统一控制是否允许真实执行
 - 可选允许调用方传 `project_user_key`，用于按人审计
 - 解析 Feishu Project saved view link，识别：
@@ -77,16 +78,25 @@ flowchart LR
 
 这里还有一条保护规则：如果调用方传的是中文状态，例如 `已完成`、`修改中`，代理只会按这张中文映射表解析；如果中文状态没有命中当前类型的映射，代理会直接报错，而不会自动猜测别的状态 ID。
 
-## 这版暂时还没接上的能力
+## Saved View 解析
 
-- `saved view link -> 自动拉取该视图下的工作项列表`
+当前代理支持：
 
-原因不是代理架构问题，而是我们当前本地可复用的稳定能力主要来自：
+- `POST /resolve-view-items`
+- `client.py resolve-view-items <view-link>`
+- `preview/execute` 直接传 `view_link`
 
-- Feishu Project Open API 的工作项筛选、工作流查询、状态流转
-- Codex 里的 Feishu Project MCP 视图读取能力
+当前实现方式是：
 
-前者适合做服务端，后者当前更像是 agent 内部连接器，不适合直接搬到独立 HTTP 服务里。所以这版把“视图链接解析”先做成稳定入口，把“视图行数据解析”显式保留为后续扩展点，而不是先塞一个不确定实现。
+- 读取代理宿主机本地 Chrome 的 `Service Worker/CacheStorage`
+- 解析飞书项目前端缓存下来的 `runtime_and_structure` 流
+- 从其中提取 `work_item_id`、标题和当前状态
+
+这意味着有一个前提：
+
+- 目标 `saved view` 需要先在代理宿主机的 Chrome 里打开过一次
+
+如果你希望扫描非默认 Chrome profile，可以通过 `VIEW_CACHE_PROFILE_DIRS` 指定一个或多个 profile 目录，逗号分隔。
 
 ## 服务端环境变量
 
@@ -185,6 +195,21 @@ python3 client.py parse-view-link \
   "https://project.feishu.cn/rzoecp/workObjectView/asset_subtask/xhfSshxvg?scope=workspaces&node=29455352"
 ```
 
+### 4. 解析 saved view 行数据
+
+```bash
+python3 client.py resolve-view-items \
+  "https://project.feishu.cn/rzoecp/workObjectView/asset_task/rvYdSvbDR?scope=workspaces&node=29423509"
+```
+
+### 5. 直接按 saved view 预览
+
+```bash
+python3 client.py preview \
+  --target 已完成 \
+  --view-link "https://project.feishu.cn/rzoecp/workObjectView/asset_task/rvYdSvbDR?scope=workspaces&node=29423509"
+```
+
 ## HTTP 接口
 
 ### `GET /health`
@@ -233,7 +258,14 @@ python3 client.py parse-view-link \
 
 ### `POST /resolve-view-items`
 
-这版会返回 `501`，表示接口合同已经预留，但还没接入 saved view 实际解析。
+这版会返回：
+
+- 解析出的 `parsed_view`
+- 视图里的 `items`
+- 可直接用于后续预览/执行的 `queries`
+- 实际工作项类型 `work_item_type_key`
+
+前提是该视图已经在代理宿主机的 Chrome 里打开过，且缓存还在。
 
 ## 给其他 agent 的接入方式
 
@@ -273,7 +305,7 @@ python3 client.py preview --target 修改中 --names-file /tmp/tasks.txt
 2. `RELAY_SHARED_SECRET` 换成更细粒度的调用凭据
 3. 服务端增加调用审计日志
 4. 服务端增加 `caller -> allowed user_key` 映射
-5. 后续补上 `saved view -> item list` 专用解析器
+5. 后续补上“非缓存态”的 `saved view -> item list` 实时拉取
 
 ## Git 仓库建议
 
@@ -312,7 +344,7 @@ python3 client.py preview --target 修改中 --names-file /tmp/tasks.txt
 
 ## 下一步最值得补的两项
 
-1. `saved view` 解析器
-   让 `workObjectView/...` 直接变成工作项列表。
-2. 调用身份治理
+1. 调用身份治理
    把“谁能以谁的 user_key 执行”做成服务端规则。
+2. 非缓存态的 saved view 实时拉取
+   让代理在没本地浏览器缓存时也能直接取视图行数据。

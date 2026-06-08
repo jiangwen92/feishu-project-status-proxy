@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Feishu Project Status Proxy",
-    "version": "2026-06-08.1",
+    "version": "2026-06-08.2",
     "description": "Shared proxy for previewing and executing Feishu Project work item status transitions without distributing plugin secrets to every client."
   },
   "servers": [
@@ -22,8 +22,7 @@
       "StatusBatchRequest": {
         "type": "object",
         "required": [
-          "target",
-          "queries"
+          "target"
         ],
         "properties": {
           "target": {
@@ -36,6 +35,10 @@
               "type": "string"
             },
             "description": "Task titles, asset names, or work item ids."
+          },
+          "view_link": {
+            "type": "string",
+            "description": "Optional saved view link. If queries are omitted, the proxy will try to resolve row ids from local browser cache on the proxy host."
           },
           "work_item_type": {
             "type": "string"
@@ -162,7 +165,7 @@
     },
     "/resolve-view-items": {
       "post": {
-        "summary": "Reserved endpoint for future saved-view item resolution",
+        "summary": "Resolve saved-view rows from the proxy host's local browser cache",
         "security": [
           {
             "relayBearer": []
@@ -179,8 +182,8 @@
           }
         },
         "responses": {
-          "501": {
-            "description": "Not implemented in the MVP"
+          "200": {
+            "description": "Resolved work item ids, names, and statuses"
           }
         }
       }
