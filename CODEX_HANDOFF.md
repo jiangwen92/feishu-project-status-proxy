@@ -6,8 +6,9 @@
 
 1. 这是一个 `Feishu Project 状态批量预览/执行代理服务`。
 2. 服务端保存 Feishu secret，调用方只拿代理地址和共享密钥。
-3. 真正部署前先复制 `.env.example` 为 `.env.local`。
-4. 当前版本还不支持 `saved view link -> 自动拉取视图里的工作项列表`，只支持解析 view link 元信息。
+3. 建议开启“调用方必须自己提供 `user key`”模式，并记录审计日志。
+4. 真正部署前先复制 `.env.example` 为 `.env.local`。
+5. 当前版本还不支持 `saved view link -> 自动拉取视图里的工作项列表`，只支持解析 view link 元信息。
 
 ## 仓库目的
 
@@ -84,8 +85,16 @@ cp .env.example .env.local
 RELAY_SHARED_SECRET=replace-with-shared-secret
 PROJECT_PLUGIN_ID=...
 PROJECT_PLUGIN_SECRET=...
-PROJECT_USER_KEY=...
 PROJECT_KEY=rzoecp
+```
+
+推荐共享代理配置：
+
+```bash
+ALLOW_CALLER_USER_KEY=1
+REQUIRE_CALLER_USER_KEY=1
+PROJECT_USER_KEY=
+AUDIT_LOG_PATH=logs/audit.jsonl
 ```
 
 4. 启动服务：
@@ -107,6 +116,7 @@ python3 client.py health
 ```bash
 export FEISHU_STATUS_PROXY_BASE_URL=http://<host>:8787
 export FEISHU_STATUS_PROXY_SHARED_SECRET=<shared-secret>
+export FEISHU_PROJECT_USER_KEY=<your-own-feishu-user-key>
 ```
 
 然后：
@@ -124,6 +134,7 @@ python3 client.py execute --target 修改中 --names-file /tmp/tasks.txt
 2. 检查 `matched / ambiguous / not_found / ready / blocked`
 3. 再 `execute`
 4. 如果要大批量操作，优先用工作项 ID 而不是模糊标题
+5. 对共享代理，默认每个人都要传自己的 `FEISHU_PROJECT_USER_KEY`
 
 ## 已知限制
 
@@ -131,7 +142,7 @@ python3 client.py execute --target 修改中 --names-file /tmp/tasks.txt
 
 1. 只支持 `saved view link` 的解析，不支持直接把视图里的工作项列表拉出来
 2. 如果要从 saved view 批量操作，仍需要外部先把任务名单整理出来
-3. 审计控制目前还比较轻，只支持固定 `PROJECT_USER_KEY` 或允许调用方传 `project_user_key`
+3. 审计日志目前是本地 JSONL 文件，不是数据库或可视化后台
 
 ## 对接别的 Codex 时怎么交接
 

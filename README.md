@@ -68,7 +68,6 @@ flowchart LR
 RELAY_SHARED_SECRET=replace-with-shared-secret
 PROJECT_PLUGIN_ID=...
 PROJECT_PLUGIN_SECRET=...
-PROJECT_USER_KEY=...
 PROJECT_KEY=rzoecp
 ```
 
@@ -87,12 +86,17 @@ PROJECT_KEY=rzoecp
   允许真实执行。设成 `0` 就变成纯预览环境。
 - `ALLOW_CALLER_USER_KEY=1`
   允许调用方通过 body 或 `X-Project-User-Key` 指定操作者身份。
+- `REQUIRE_CALLER_USER_KEY=1`
+  强制每次请求都显式传 `project_user_key`，不再回落到服务端默认身份。
+- `AUDIT_LOG_PATH=logs/audit.jsonl`
+  记录 `preview / execute / error` 的 JSONL 审计日志，便于回查是谁批量改了状态。
 
-如果你更看重审计，建议：
+如果你更看重审计，建议直接使用：
 
-1. 默认 `ALLOW_CALLER_USER_KEY=0`
-2. 每个环境固定一个 `PROJECT_USER_KEY`
-3. 后续再把“调用人 -> 可用 user_key”做成服务端 allowlist
+1. `ALLOW_CALLER_USER_KEY=1`
+2. `REQUIRE_CALLER_USER_KEY=1`
+3. `PROJECT_USER_KEY=` 留空
+4. 开启 `AUDIT_LOG_PATH`
 
 ## 启动
 
@@ -124,6 +128,7 @@ curl http://127.0.0.1:8787/health
 ```bash
 export FEISHU_STATUS_PROXY_BASE_URL=http://127.0.0.1:8787
 export FEISHU_STATUS_PROXY_SHARED_SECRET=replace-with-shared-secret
+export FEISHU_PROJECT_USER_KEY=<your-feishu-user-key>
 ```
 
 ### 1. 预览
@@ -215,6 +220,7 @@ python3 client.py parse-view-link \
 ```bash
 export FEISHU_STATUS_PROXY_BASE_URL=http://your-proxy-host:8787
 export FEISHU_STATUS_PROXY_SHARED_SECRET=replace-with-shared-secret
+export FEISHU_PROJECT_USER_KEY=<their-own-feishu-user-key>
 ```
 
 然后调用：

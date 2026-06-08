@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -69,8 +70,10 @@ def public_env_state() -> Dict[str, Any]:
         ),
         "has_project_user_key": bool(env_text("PROJECT_USER_KEY")),
         "allow_caller_user_key": env_bool("ALLOW_CALLER_USER_KEY", False),
+        "require_caller_user_key": env_bool("REQUIRE_CALLER_USER_KEY", False),
         "allow_execute": env_bool("ALLOW_EXECUTE", True),
         "has_relay_shared_secret": bool(env_text("RELAY_SHARED_SECRET")),
+        "audit_log_path": resolve_audit_log_path(),
     }
 
 
@@ -169,17 +172,91 @@ def collect_queries(body: Dict[str, Any]) -> List[str]:
     return values
 
 
+def resolve_audit_log_path() -> str:
+    raw = env_text("AUDIT_LOG_PATH")
+    if not raw:
+        return ""
+    if os.path.isabs(raw):
+        return raw
+    return os.path.join(os.path.dirname(__file__), raw)
+
+
+def append_audit_log(
+    *,
+    event_type: str,
+    handler: BaseHTTPRequestHandler,
+    body: Dict[str, Any],
+    headers: Dict[str, str],
+    status_code: int,
+    result: Optional[Dict[str, Any]] = None,
+    error: str = "",
+) -> None:
+    path = resolve_audit_log_path()
+    if not path:
+        return
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+    queries = collect_queries(body)
+    target = first_text(
+        body.get("target"),
+        body.get("target_status"),
+        ((result or {}).get("target") or {}).get("label"),
+    )
+    entry = {
+        "ts_utc": datetime.now(timezone.utc).isoformat(),
+        "event_type": event_type,
+        "status_code": status_code,
+        "remote_addr": (handler.client_address or ("", 0))[0],
+        "acting_user_key": first_text(
+            (result or {}).get("acting_user_key"),
+            body.get("project_user_key"),
+            body.get("user_key"),
+            headers.get("X-Project-User-Key"),
+            headers.get("x-project-user-key"),
+        ),
+        "project_key": first_text(
+            (result or {}).get("project_key"),
+            body.get("project_key"),
+            env_text("PROJECT_KEY", DEFAULT_PROJECT_KEY),
+        ),
+        "work_item_type": first_text(
+            (result or {}).get("work_item_type"),
+            body.get("work_item_type"),
+            body.get("work_item_type_key"),
+            env_text("PROJECT_DEFAULT_WORK_ITEM_TYPE", DEFAULT_WORK_ITEM_TYPE),
+        ),
+        "target": target,
+        "query_count": len(queries),
+        "queries_preview": queries[:20],
+        "summary": (result or {}).get("summary"),
+        "error": error,
+    }
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
 def resolve_user_key(body: Dict[str, Any], headers: Dict[str, str]) -> str:
     default_user_key = env_text("PROJECT_USER_KEY")
-    if not env_bool("ALLOW_CALLER_USER_KEY", False):
-        return default_user_key
-    return first_text(
+    allow_caller = env_bool("ALLOW_CALLER_USER_KEY", False)
+    require_caller = env_bool("REQUIRE_CALLER_USER_KEY", False)
+    caller_user_key = first_text(
         body.get("project_user_key"),
         body.get("user_key"),
         headers.get("X-Project-User-Key"),
         headers.get("x-project-user-key"),
-        default_user_key,
     )
+    if require_caller and not allow_caller:
+        raise HttpError(500, "REQUIRE_CALLER_USER_KEY=1 requires ALLOW_CALLER_USER_KEY=1")
+    if not allow_caller:
+        return default_user_key
+    if require_caller and not caller_user_key:
+        raise HttpError(
+            400,
+            "missing project_user_key or X-Project-User-Key; this proxy requires caller-supplied user keys",
+        )
+    return first_text(caller_user_key, default_user_key)
 
 
 def build_client(body: Dict[str, Any], headers: Dict[str, str]) -> Tuple[FeishuProjectClient, str]:
@@ -208,12 +285,12 @@ def build_client(body: Dict[str, Any], headers: Dict[str, str]) -> Tuple[FeishuP
     if plugin_token and not user_key:
         raise HttpError(
             500,
-            "PROJECT_PLUGIN_TOKEN is configured but PROJECT_USER_KEY is missing and caller user keys are disabled",
+            "PROJECT_PLUGIN_TOKEN is configured but no acting user key is available; set PROJECT_USER_KEY or require callers to pass project_user_key",
         )
     if plugin_id and plugin_secret and not user_key:
         raise HttpError(
             500,
-            "PROJECT_PLUGIN_ID/PROJECT_PLUGIN_SECRET are configured but PROJECT_USER_KEY is missing and caller user keys are disabled",
+            "PROJECT_PLUGIN_ID/PROJECT_PLUGIN_SECRET are configured but no acting user key is available; set PROJECT_USER_KEY or require callers to pass project_user_key",
         )
     if not user_plugin_token and not plugin_token and not (plugin_id and plugin_secret):
         raise HttpError(
@@ -283,13 +360,15 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, {"ok": False, "version": VERSION, "error": str(exc)}, 500)
 
     def do_POST(self) -> None:
+        path = self.path
+        merged_headers = {key: value for key, value in self.headers.items()}
+        body: Dict[str, Any] = {}
         try:
             payload = read_json_body(self)
-            request_headers = {key: value for key, value in self.headers.items()}
             method, path, merged_headers, body = normalize_request_shape(
                 self.command,
                 self.path,
-                request_headers,
+                merged_headers,
                 payload,
             )
 
@@ -337,21 +416,64 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/preview-status":
                 assert_relay_auth(merged_headers)
                 result = preview_or_execute_response(body, merged_headers, execute=False)
+                append_audit_log(
+                    event_type="preview_status",
+                    handler=self,
+                    body=body,
+                    headers=merged_headers,
+                    status_code=200,
+                    result=result,
+                )
                 send_json(self, {"ok": True, "version": VERSION, "data": result})
                 return
 
             if path == "/execute-status":
                 assert_relay_auth(merged_headers)
                 result = preview_or_execute_response(body, merged_headers, execute=True)
+                append_audit_log(
+                    event_type="execute_status",
+                    handler=self,
+                    body=body,
+                    headers=merged_headers,
+                    status_code=200,
+                    result=result,
+                )
                 send_json(self, {"ok": True, "version": VERSION, "data": result})
                 return
 
             raise HttpError(404, "not found")
         except HttpError as exc:
+            if path in {"/preview-status", "/execute-status"}:
+                append_audit_log(
+                    event_type=f"{path.lstrip('/').replace('-', '_')}_error",
+                    handler=self,
+                    body=body,
+                    headers=merged_headers,
+                    status_code=exc.status_code,
+                    error=str(exc),
+                )
             send_json(self, {"ok": False, "version": VERSION, "error": str(exc)}, exc.status_code)
         except FeishuError as exc:
+            if path in {"/preview-status", "/execute-status"}:
+                append_audit_log(
+                    event_type=f"{path.lstrip('/').replace('-', '_')}_error",
+                    handler=self,
+                    body=body,
+                    headers=merged_headers,
+                    status_code=502,
+                    error=str(exc),
+                )
             send_json(self, {"ok": False, "version": VERSION, "error": str(exc)}, 502)
         except Exception as exc:  # pragma: no cover
+            if path in {"/preview-status", "/execute-status"}:
+                append_audit_log(
+                    event_type=f"{path.lstrip('/').replace('-', '_')}_error",
+                    handler=self,
+                    body=body,
+                    headers=merged_headers,
+                    status_code=500,
+                    error=str(exc),
+                )
             send_json(self, {"ok": False, "version": VERSION, "error": str(exc)}, 500)
 
     def log_message(self, format: str, *args: object) -> None:

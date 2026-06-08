@@ -81,6 +81,7 @@ def print_json(payload: Dict[str, Any]) -> None:
 
 
 def build_status_payload(args: argparse.Namespace, execute: bool) -> Dict[str, Any]:
+    user_key = env_text("FEISHU_PROJECT_USER_KEY")
     payload: Dict[str, Any] = {
         "target": args.target,
         "queries": collect_queries(args.name, args.names_file),
@@ -89,8 +90,8 @@ def build_status_payload(args: argparse.Namespace, execute: bool) -> Dict[str, A
         payload["work_item_type"] = args.work_item_type
     if args.project_key:
         payload["project_key"] = args.project_key
-    if args.user_key:
-        payload["project_user_key"] = args.user_key
+    if args.user_key or user_key:
+        payload["project_user_key"] = args.user_key or user_key
     if args.page_size:
         payload["page_size"] = args.page_size
     if execute:
