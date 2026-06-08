@@ -146,6 +146,17 @@ python3 client.py execute --target 修改中 --names-file /tmp/tasks.txt
 2. 如果要从 saved view 批量操作，仍需要外部先把任务名单整理出来
 3. 审计日志目前是本地 JSONL 文件，不是数据库或可视化后台
 
+### 资产子任务类型专用映射
+
+资产子任务类型 `69ca097070c61cbef714a50f` 当前使用下面这套中文目标状态映射：
+
+- `待办` -> `Not started`
+- `进行中` -> `In Progress`
+- `修改中` -> `4m5jzvqqy`
+- `验收中` -> `bcoksgha8`
+- `资产验收通过` -> `itl0cpgq4`
+- `已完成` -> `0gmbrd0o7`
+
 ### 资产任务类型专用映射
 
 资产任务类型 `69ca09000d0f302f2617f6fc` 当前使用下面这套中文目标状态映射：

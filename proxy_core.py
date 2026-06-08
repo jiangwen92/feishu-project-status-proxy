@@ -24,9 +24,21 @@ DEFAULT_STATUS_MAP = {
     "done": {"label": "已完成", "state_key": "0gmbrd0o7"},
 }
 
+ASSET_SUBTASK_WORK_ITEM_TYPE = "69ca097070c61cbef714a50f"
 ASSET_TASK_WORK_ITEM_TYPE = "69ca09000d0f302f2617f6fc"
 
 WORK_ITEM_TYPE_STATUS_OVERRIDES = {
+    ASSET_SUBTASK_WORK_ITEM_TYPE: {
+        "待办": {"label": "待办", "state_key": "Not started"},
+        "not started": {"label": "待办", "state_key": "Not started"},
+        "进行中": {"label": "进行中", "state_key": "In Progress"},
+        "in progress": {"label": "进行中", "state_key": "In Progress"},
+        "修改中": {"label": "修改中", "state_key": "4m5jzvqqy"},
+        "验收中": {"label": "验收中", "state_key": "bcoksgha8"},
+        "资产验收通过": {"label": "资产验收通过", "state_key": "itl0cpgq4"},
+        "已完成": {"label": "已完成", "state_key": "0gmbrd0o7"},
+        "done": {"label": "已完成", "state_key": "0gmbrd0o7"},
+    },
     ASSET_TASK_WORK_ITEM_TYPE: {
         "修改中": {"label": "修改中", "state_key": "Finished"},
         "验收中": {"label": "验收中", "state_key": "c8uwlm517"},
@@ -37,7 +49,7 @@ WORK_ITEM_TYPE_STATUS_OVERRIDES = {
 
 DEFAULT_BASE_URL = "https://project.feishu.cn/open_api"
 DEFAULT_PROJECT_KEY = "rzoecp"
-DEFAULT_WORK_ITEM_TYPE = "69ca097070c61cbef714a50f"
+DEFAULT_WORK_ITEM_TYPE = ASSET_SUBTASK_WORK_ITEM_TYPE
 PAGE_INTERVAL_SECONDS = 0.2
 
 

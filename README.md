@@ -51,6 +51,17 @@ flowchart LR
   - `storyView/<view_id>`
   - `workObjectView/<type>/<view_id>`
 
+### 资产子任务类型状态映射
+
+对资产子任务类型 `69ca097070c61cbef714a50f`，当前内置中文别名映射是：
+
+- `待办` -> `Not started`
+- `进行中` -> `In Progress`
+- `修改中` -> `4m5jzvqqy`
+- `验收中` -> `bcoksgha8`
+- `资产验收通过` -> `itl0cpgq4`
+- `已完成` -> `0gmbrd0o7`
+
 ### 资产任务类型状态映射
 
 对资产任务类型 `69ca09000d0f302f2617f6fc`，当前内置中文别名映射是：
